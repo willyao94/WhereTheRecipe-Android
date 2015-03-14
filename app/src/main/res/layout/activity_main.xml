@@ -12,4 +12,22 @@
         android:paddingTop="7dp" />
         <!--android:layout_below="@+id/textView" />-->
 
+    <EditText
+        android:id="@+id/search"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/Ingridents"
+        android:inputType="text"
+        android:imeOptions="actionSend" />
+
+     <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="+"
+        android:id="@+id/SearchButton"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_alignBottom="@+id/search"
+        android:imeOptions="actionSend" />
 </RelativeLayout>
