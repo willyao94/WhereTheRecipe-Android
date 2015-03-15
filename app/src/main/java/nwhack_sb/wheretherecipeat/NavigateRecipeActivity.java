@@ -123,7 +123,6 @@ public class NavigateRecipeActivity extends Activity {
         protected void onPostExecute(Void aVoid) {
             super.onPostExecute(aVoid);
 
-
             directions.setText(dir);
         }
     }

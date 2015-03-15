@@ -90,11 +90,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                //Intent myIntent = new Intent(view.getContext(), NavigateRecipeActivity.class);
-                //myIntent.putExtra("test", "hello");
-                //startActivity(myIntent);
-                //Cursor c = (Cursor) searchDisplay.getItemAtPosition(position);
-                String recipeURL = "";
+                String recipeURL = null;
 
                 String value = searchDisplay.getAdapter().getItem(position).toString();
                 for(Recipe r: recipes.values()){
@@ -103,19 +99,19 @@ public class MainActivity extends Activity {
                         break;
                     }
                 }
-                Intent myIntent = new Intent(view.getContext(), NavigateRecipeActivity.class);
-                myIntent.putExtra("recipeURL_String", recipeURL);
-                startActivity(myIntent);
-
-                //Toast.makeText(getApplicationContext(),recipeURL,Toast.LENGTH_SHORT).show();
+                if (recipeURL != null) {
+                    Intent myIntent = new Intent(view.getContext(), NavigateRecipeActivity.class);
+                    myIntent.putExtra("recipeURL_String", recipeURL);
+                    startActivity(myIntent);
+                }
             }
         });
         searchDisplay.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(final AdapterView<?> adapterView, View view, final int position, long l) {
                 AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
-                builder.setTitle("Delete?");
-                builder.setMessage("Are you sure you want to delete " + position);
+                builder.setTitle("Delete");
+                builder.setMessage("Remove this ingredient?");
                 final int positionToRemove = position;
                 builder.setNegativeButton("Cancel", null);
                 List<String> temp = new ArrayList<String>();
@@ -146,7 +142,8 @@ public class MainActivity extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_search:
-                openSubmitSearch();
+                if (searchDisplay.getCount() > 0)
+                    openSubmitSearch();
                 return true;
             case R.id.add_ingredient:
                 openIngredientInput();
@@ -424,10 +421,22 @@ public class MainActivity extends Activity {
                 bestTag = "Failed to find anything";
                 Toast.makeText(MainActivity.this, bestTag, Toast.LENGTH_SHORT).show();
             } else {
-                ingredientsArr.add(bestTag);
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("Found an item!");
+                builder.setMessage("Was that a(n) " + bestTag + " you just took a picture of?");
+                builder.setNegativeButton("Nope", null);
+                List<String> temp = new ArrayList<String>();
+                final ListAdapter adapter = searchDisplay.getAdapter();
+                builder.setPositiveButton("Yeah!", new AlertDialog.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        ingredientsArr.add(bestTag);
 
-                ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this ,android.R.layout.simple_list_item_1, ingredientsArr);
-                searchDisplay.setAdapter(adapter);
+                        ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this ,android.R.layout.simple_list_item_1, ingredientsArr);
+                        searchDisplay.setAdapter(adapter);
+                    }
+                });
+                builder.show();
+
             }
         }
     }

@@ -8,5 +8,7 @@
         android:layout_height="fill_parent"
         android:id="@+id/displayRecipe"
         android:layout_alignParentTop="true"
-        android:layout_centerHorizontal="true" />
+        android:layout_centerHorizontal="true"
+        android:padding="10dp"
+        />
 </RelativeLayout>
