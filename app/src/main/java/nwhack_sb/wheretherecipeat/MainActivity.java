@@ -8,7 +8,9 @@ import android.content.ClipData;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
 import android.database.MatrixCursor;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -20,12 +22,15 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListAdapter;
+import android.widget.PopupWindow;
 import android.widget.SearchView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -35,6 +40,7 @@ import java.util.Date;
 import java.util.List;
 
 import static android.widget.SearchView.OnQueryTextListener;
+import static nwhack_sb.wheretherecipeat.R.id.displaySearch;
 
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
@@ -70,7 +76,6 @@ public class MainActivity extends Activity {
     private String inputIngredient;
 
     final String PearsonAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?ingredients-any=";
-    String searchOption;
     ListView searchDisplay;
     Map<String, Recipe> recipes;
 
@@ -83,10 +88,34 @@ public class MainActivity extends Activity {
     }
 
     private void initVars() {
-        searchDisplay = (ListView) findViewById(R.id.displaySearch);
-        searchDisplay.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        searchDisplay = (ListView) findViewById(displaySearch);
+        searchDisplay.setOnItemClickListener(new AdapterView.OnItemClickListener(){
+
             @Override
-            public void onItemClick(final AdapterView<?> adapterView, View view, final int position, long l) {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                //Intent myIntent = new Intent(view.getContext(), NavigateRecipeActivity.class);
+                //myIntent.putExtra("test", "hello");
+                //startActivity(myIntent);
+                //Cursor c = (Cursor) searchDisplay.getItemAtPosition(position);
+                String recipeURL = "";
+
+                String value = searchDisplay.getAdapter().getItem(position).toString();
+                for(Recipe r: recipes.values()){
+                    if(r.getName().equals(value)){
+                        recipeURL = r.getRecipeURL();
+                        break;
+                    }
+                }
+                Intent myIntent = new Intent(view.getContext(), NavigateRecipeActivity.class);
+                myIntent.putExtra("recipeURL_String", recipeURL);
+                startActivity(myIntent);
+
+                //Toast.makeText(getApplicationContext(),recipeURL,Toast.LENGTH_SHORT).show();
+            }
+        });
+        searchDisplay.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(final AdapterView<?> adapterView, View view, final int position, long l) {
                 AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
                 builder.setTitle("Delete?");
                 builder.setMessage("Are you sure you want to delete " + position);
@@ -97,11 +126,12 @@ public class MainActivity extends Activity {
                 builder.setPositiveButton("Ok", new AlertDialog.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
                         ingredientsArr.remove(positionToRemove);
-                        ArrayAdapter<String> test = new ArrayAdapter<String>(MainActivity.this,android.R.layout.simple_list_item_1,ingredientsArr);
+                        ArrayAdapter<String> test = new ArrayAdapter<String>(MainActivity.this, android.R.layout.simple_list_item_1, ingredientsArr);
                         searchDisplay.setAdapter(adapter);
                     }
                 });
                 builder.show();
+                return false;
             }
         });
         ingredientsArr = new ArrayList<String>();
@@ -139,7 +169,7 @@ public class MainActivity extends Activity {
 
         String search = PearsonAPIURL;
         for(String s: ingList) {
-            search = search.concat(s);
+            search = search.concat(s.trim());
             if ((ingList.size()-1) != ingList.indexOf(s)){
                 search = search.concat("%2C");
             }
