@@ -61,13 +61,11 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
 
+
     private List<String> ingredientsArr;
     private String inputIngredient;
 
-    private Menu menu;
-
-    final String PearsonAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?name-contains=rice";
-
+    String PearsonAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?ingredients-any=";
     String searchOption;
     ListView searchDisplay;
     Map<String, Recipe> recipes;
@@ -79,6 +77,17 @@ public class MainActivity extends Activity {
         getActionBar().setDisplayShowTitleEnabled(false); //TODO temp solution
         initVars();
 
+        // TODO: Read from ListView
+        List<String> ingList = new ArrayList<String>();
+        ingList.add("chicken");
+        ingList.add("beef");
+
+        for(String s: ingList) {
+            PearsonAPIURL = PearsonAPIURL.concat(s);
+            if ((ingList.size()-1) != ingList.indexOf(s)){
+                PearsonAPIURL = PearsonAPIURL.concat("%2C");
+            }
+        }
         RecipeParser parser = new RecipeParser();
         parser.execute();
     }
@@ -87,7 +96,7 @@ public class MainActivity extends Activity {
         searchDisplay = (ListView) findViewById(R.id.displaySearch);
         ingredientsArr = new ArrayList<String>();
         recipes = new HashMap<String, Recipe>();
-        searchOption = "rice";
+        //searchOption = "rice";
     }
 
     @Override
@@ -219,10 +228,14 @@ public class MainActivity extends Activity {
             super.onPostExecute(result);
 
             List<String> recipeNames = new ArrayList<String>();
+
             for (Recipe r : recipes.values()) {
-                if (r.getName().toLowerCase().contains(searchOption.toLowerCase()))
                     recipeNames.add(r.getName());
             }
+
+            // Displaying into ListView
+            ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this ,android.R.layout.simple_list_item_1, recipeNames);
+            searchDisplay.setAdapter(adapter);
         }
     }
 

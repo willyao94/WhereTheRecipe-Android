@@ -9,6 +9,5 @@
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         android:id="@+id/displaySearch"
-        android:paddingTop="7dp" />
-        <!--android:layout_below="@+id/textView" />-->
+        android:paddingTop="35dp" />
 </RelativeLayout>
