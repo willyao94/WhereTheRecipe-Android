@@ -2,15 +2,18 @@ package nwhack_sb.wheretherecipeat;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.SearchManager;
 import android.content.ClipData;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.MatrixCursor;
 import android.os.Build;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.InputType;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -28,6 +31,7 @@ import java.util.Date;
 import java.util.List;
 
 import static android.widget.SearchView.OnQueryTextListener;
+
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
 import android.widget.Toast;
@@ -57,11 +61,8 @@ import java.util.Map;
 
 public class MainActivity extends Activity {
 
-    private List<String> items;
-    ClipData.Item searchBar;
-    private EditText editText;
-    private Button btnNext;
-
+    private List<String> ingredientsArr;
+    private String inputIngredient;
 
     private Menu menu;
 
@@ -69,45 +70,13 @@ public class MainActivity extends Activity {
 
     String searchOption;
     ListView searchDisplay;
-    Map<String,Recipe> recipes;
+    Map<String, Recipe> recipes;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        btnNext = (Button) findViewById(R.id.SearchButton);
-        btnNext.setEnabled(true);
-
-        editText = (EditText) findViewById(R.id.search);
-
-        editText.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-
-            @Override
-            public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                // TODO Auto-generated method stub
-                Toast.makeText(getBaseContext(), "test", Toast.LENGTH_SHORT).show();
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
-                    Toast toast = Toast.makeText(getApplicationContext(), "Toast Message",
-                            Toast.LENGTH_SHORT);
-                    toast.setGravity(Gravity.TOP | Gravity.LEFT, 0, 0);
-                    toast.show();
-
-                    btnNext.setEnabled(true);
-
-                }
-                return false;
-            }
-        });
-
-        btnNext.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Toast toast = Toast.makeText(getApplicationContext(), "Toast Message",
-                        Toast.LENGTH_SHORT);
-                toast.setGravity(Gravity.TOP | Gravity.LEFT, 0, 0);
-                toast.show();
-            }
-        });
-
+        getActionBar().setDisplayShowTitleEnabled(false); //TODO temp solution
         initVars();
 
         RecipeParser parser = new RecipeParser();
@@ -116,39 +85,26 @@ public class MainActivity extends Activity {
 
     private void initVars() {
         searchDisplay = (ListView) findViewById(R.id.displaySearch);
+        ingredientsArr = new ArrayList<String>();
         recipes = new HashMap<String, Recipe>();
         searchOption = "rice";
     }
 
-
-
-
-        @Override
+    @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-         //Inflate the menu; this adds items to the action bar if it is present.
+        //Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
         return super.onCreateOptionsMenu(menu);
     }
 
-//    @Override
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-//        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-//        if (id == R.id.action_settings) {
-//            return true;
-//        }
-
-//        return super.onOptionsItemSelected(item);
         switch (item.getItemId()) {
             case R.id.action_search:
-                openSearch();
+                Toast.makeText(getBaseContext(),"Not implemented",Toast.LENGTH_SHORT).show();
                 return true;
-            case R.id.action_settings:
-                openSettings();
+            case R.id.add_ingredient:
+                openIngredientInput();
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -156,32 +112,36 @@ public class MainActivity extends Activity {
 
     }
 
-    private void openSearch() {
-//        startActivity(new Intent(SearchManager.INTENT_ACTION_GLOBAL_SEARCH));
-        Toast toast = Toast.makeText(this, "Your toast message.",
-                Toast.LENGTH_SHORT);
-        toast.setGravity(Gravity.TOP|Gravity.LEFT, 0, 0);
-        toast.show();
+    private void openIngredientInput(){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Add an Ingredient");
 
-        SearchView searchView = (SearchView) menu.findItem(R.id.action_search).getActionView();
-        searchView.setOnQueryTextListener((OnQueryTextListener) this);
+        // Set up the input
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT);
+        builder.setView(input);
 
-        searchView.performClick();
-        searchView.requestFocus();
-        searchView.onActionViewExpanded();
-        searchView.setIconified(true);
+        // Set up the buttons
+        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                inputIngredient = input.getText().toString();
+                ingredientsArr.add(inputIngredient);
+                ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this,android.R.layout.simple_list_item_1,ingredientsArr);
+                searchDisplay.setAdapter(adapter);
+            }
+        });
+        builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                dialog.cancel();
+            }
+        });
+
+        builder.show();
     }
 
-    private void openSettings(){
-//        startActivity(new Intent(Settings.ACTION_SETTINGS));
-        //startActivityForResult(new Intent(android.provider.Settings.ACTION_SETTINGS), 0);
-    }
-
-    private void sendMessage(){
-
-    }
-
-    private class RecipeParser extends AsyncTask<Void,Void,Void>{
+    private class RecipeParser extends AsyncTask<Void, Void, Void> {
         private InputStream is;
         private String json;
         private JSONObject jObj;
@@ -194,10 +154,10 @@ public class MainActivity extends Activity {
             try {
                 response = httpclient.execute(new HttpGet(PearsonAPIURL));
                 StatusLine statusLine = response.getStatusLine();
-                if(statusLine.getStatusCode() == HttpStatus.SC_OK){
+                if (statusLine.getStatusCode() == HttpStatus.SC_OK) {
                     HttpEntity httpEntity = response.getEntity();
                     is = httpEntity.getContent();
-                } else{
+                } else {
                     //Closes the connection.
                     response.getEntity().getContent().close();
                     throw new IOException(statusLine.getReasonPhrase());
@@ -213,7 +173,7 @@ public class MainActivity extends Activity {
                 BufferedReader reader = new BufferedReader(new InputStreamReader(is, "iso-8859-1"), 8);
                 StringBuilder builder = new StringBuilder();
                 String line;
-                while ((line = reader.readLine()) != null){
+                while ((line = reader.readLine()) != null) {
                     builder.append(line);
                 }
                 is.close();
@@ -224,10 +184,10 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             }
 
-            try{
+            try {
                 jObj = new JSONObject(json);
                 JSONArray jArr = jObj.getJSONArray("results");
-                for (int i = 0; i < jArr.length(); i++){
+                for (int i = 0; i < jArr.length(); i++) {
                     JSONObject result = jArr.getJSONObject(i);
 
                     String id = result.getString("id");
@@ -240,12 +200,12 @@ public class MainActivity extends Activity {
                     List<String> ingredients = new ArrayList<String>();
 
                     JSONArray ingredientsArr = result.getJSONArray("ingredients");
-                    for (int j = 0; j < ingredientsArr.length(); j++){
+                    for (int j = 0; j < ingredientsArr.length(); j++) {
                         ingredients.add(ingredientsArr.getString(j));
                     }
 
                     Recipe r = new Recipe(name, id, url, cuisine, cookingMethod, ingredients, fullImage, thumbImage, null);
-                    recipes.put(id,r);
+                    recipes.put(id, r);
                 }
             } catch (JSONException e) {
                 e.printStackTrace();
@@ -259,14 +219,10 @@ public class MainActivity extends Activity {
             super.onPostExecute(result);
 
             List<String> recipeNames = new ArrayList<String>();
-            for (Recipe r : recipes.values()){
+            for (Recipe r : recipes.values()) {
                 if (r.getName().toLowerCase().contains(searchOption.toLowerCase()))
                     recipeNames.add(r.getName());
             }
-
-            // Displaying into ListView
-            ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this ,android.R.layout.simple_list_item_1, recipeNames);
-            searchDisplay.setAdapter(adapter);
         }
     }
 
