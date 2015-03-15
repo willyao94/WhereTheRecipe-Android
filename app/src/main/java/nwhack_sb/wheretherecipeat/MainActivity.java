@@ -62,10 +62,10 @@ public class MainActivity extends Activity {
     private EditText editText;
     private Button btnNext;
 
-
     private Menu menu;
 
-    final String PearsonAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?name-contains=rice";
+    String PearsonAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?ingredients-any=";
+    //StringBuilder FinalAPIURL = new StringBuilder();
 
     String searchOption;
     ListView searchDisplay;
@@ -105,10 +105,26 @@ public class MainActivity extends Activity {
                         Toast.LENGTH_SHORT);
                 toast.setGravity(Gravity.TOP | Gravity.LEFT, 0, 0);
                 toast.show();
+                editText.setText("");
             }
         });
 
         initVars();
+
+        List<String> ingList = new ArrayList<String>();
+        ingList.add("chicken");
+        ingList.add("beef");
+
+        for(String s: ingList) {
+            PearsonAPIURL = PearsonAPIURL.concat(s);
+            if ((ingList.size()-1) != ingList.indexOf(s)){
+                PearsonAPIURL = PearsonAPIURL.concat("%2C");
+            }
+        }
+
+        //PearsonAPIURL = FinalAPIURL.toString();
+
+        Log.i("myApp", String.valueOf(PearsonAPIURL));
 
         RecipeParser parser = new RecipeParser();
         parser.execute();
@@ -117,11 +133,8 @@ public class MainActivity extends Activity {
     private void initVars() {
         searchDisplay = (ListView) findViewById(R.id.displaySearch);
         recipes = new HashMap<String, Recipe>();
-        searchOption = "rice";
+        //searchOption = "rice";
     }
-
-
-
 
         @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -260,8 +273,10 @@ public class MainActivity extends Activity {
 
             List<String> recipeNames = new ArrayList<String>();
             for (Recipe r : recipes.values()){
-                if (r.getName().toLowerCase().contains(searchOption.toLowerCase()))
+                //if (r.getName().toLowerCase().contains(searchOption.toLowerCase()))
                     recipeNames.add(r.getName());
+                Log.i("myApp1", r.getName());
+
             }
 
             // Displaying into ListView
