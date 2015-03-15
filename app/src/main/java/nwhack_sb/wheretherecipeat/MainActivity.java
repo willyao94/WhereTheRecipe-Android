@@ -21,12 +21,16 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
+import android.widget.Adapter;
+import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ListAdapter;
 import android.widget.SearchView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.lang.reflect.Array;
 import java.util.Date;
 import java.util.List;
 
@@ -65,7 +69,7 @@ public class MainActivity extends Activity {
     private List<String> ingredientsArr;
     private String inputIngredient;
 
-    String PearsonAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?ingredients-any=";
+    final String PearsonAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?ingredients-any=";
     String searchOption;
     ListView searchDisplay;
     Map<String, Recipe> recipes;
@@ -76,27 +80,32 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         getActionBar().setDisplayShowTitleEnabled(false); //TODO temp solution
         initVars();
-
-        // TODO: Read from ListView
-        List<String> ingList = new ArrayList<String>();
-        ingList.add("chicken");
-        ingList.add("beef");
-
-        for(String s: ingList) {
-            PearsonAPIURL = PearsonAPIURL.concat(s);
-            if ((ingList.size()-1) != ingList.indexOf(s)){
-                PearsonAPIURL = PearsonAPIURL.concat("%2C");
-            }
-        }
-        RecipeParser parser = new RecipeParser();
-        parser.execute();
     }
 
     private void initVars() {
         searchDisplay = (ListView) findViewById(R.id.displaySearch);
+        searchDisplay.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(final AdapterView<?> adapterView, View view, final int position, long l) {
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("Delete?");
+                builder.setMessage("Are you sure you want to delete " + position);
+                final int positionToRemove = position;
+                builder.setNegativeButton("Cancel", null);
+                List<String> temp = new ArrayList<String>();
+                final ListAdapter adapter = searchDisplay.getAdapter();
+                builder.setPositiveButton("Ok", new AlertDialog.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        ingredientsArr.remove(positionToRemove);
+                        ArrayAdapter<String> test = new ArrayAdapter<String>(MainActivity.this,android.R.layout.simple_list_item_1,ingredientsArr);
+                        searchDisplay.setAdapter(adapter);
+                    }
+                });
+                builder.show();
+            }
+        });
         ingredientsArr = new ArrayList<String>();
         recipes = new HashMap<String, Recipe>();
-        //searchOption = "rice";
     }
 
     @Override
@@ -110,7 +119,7 @@ public class MainActivity extends Activity {
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.action_search:
-                Toast.makeText(getBaseContext(),"Not implemented",Toast.LENGTH_SHORT).show();
+                openSubmitSearch();
                 return true;
             case R.id.add_ingredient:
                 openIngredientInput();
@@ -118,7 +127,27 @@ public class MainActivity extends Activity {
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
 
+    private void openSubmitSearch() {
+        // TODO: Read from ListView
+        List<String> ingList = new ArrayList<String>();
+        ListAdapter adapter = searchDisplay.getAdapter();
+        for (int i = 0; i < adapter.getCount(); i++){
+            ingList.add((String)adapter.getItem(i));
+        }
+
+        String search = PearsonAPIURL;
+        for(String s: ingList) {
+            search = search.concat(s);
+            if ((ingList.size()-1) != ingList.indexOf(s)){
+                search = search.concat("%2C");
+            }
+        }
+        RecipeParser parser = new RecipeParser();
+        parser.execute(search);
+        // Remove previous search inputs
+        ingredientsArr.clear();
     }
 
     private void openIngredientInput(){
@@ -150,18 +179,18 @@ public class MainActivity extends Activity {
         builder.show();
     }
 
-    private class RecipeParser extends AsyncTask<Void, Void, Void> {
+    private class RecipeParser extends AsyncTask<String, Void, Void> {
         private InputStream is;
         private String json;
         private JSONObject jObj;
 
         @Override
-        protected Void doInBackground(Void... arg0) {
+        protected Void doInBackground(String... arg0) {
             // Make Http request
             HttpClient httpclient = new DefaultHttpClient();
             HttpResponse response;
             try {
-                response = httpclient.execute(new HttpGet(PearsonAPIURL));
+                response = httpclient.execute(new HttpGet(arg0[0]));
                 StatusLine statusLine = response.getStatusLine();
                 if (statusLine.getStatusCode() == HttpStatus.SC_OK) {
                     HttpEntity httpEntity = response.getEntity();
