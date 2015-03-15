@@ -8,4 +8,8 @@
         android:title="@+id/action_search"
         android:icon="@android:drawable/ic_menu_search"
         android:showAsAction="always" />
+    <item android:id="@+id/action_camera"
+        android:title="@+id/action_camera"
+        android:icon="@android:drawable/ic_menu_camera"
+        android:showAsAction="always" />
 </menu>

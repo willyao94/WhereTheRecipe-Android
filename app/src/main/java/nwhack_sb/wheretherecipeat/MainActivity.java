@@ -1,40 +1,28 @@
 package nwhack_sb.wheretherecipeat;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.app.SearchManager;
-import android.content.ClipData;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
-import android.database.MatrixCursor;
-import android.os.Build;
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.Settings;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.text.InputType;
-import android.util.Log;
-import android.view.Gravity;
-import android.view.KeyEvent;
+import android.util.Base64;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.inputmethod.EditorInfo;
-import android.widget.Adapter;
 import android.widget.AdapterView;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ListAdapter;
-import android.widget.SearchView;
-import android.widget.TextView;
-import android.widget.Toast;
 
-import java.lang.reflect.Array;
+import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
-
-import static android.widget.SearchView.OnQueryTextListener;
 
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
@@ -47,6 +35,7 @@ import org.apache.http.StatusLine;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -59,18 +48,31 @@ import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+
+import com.parse.GetCallback;
+import com.parse.Parse;
+import com.parse.ParseException;
+import com.parse.ParseFile;
+import com.parse.ParseObject;
+import com.parse.ParseQuery;
+import com.parse.SaveCallback;
 
 
 public class MainActivity extends Activity {
 
-
     private List<String> ingredientsArr;
     private String inputIngredient;
+    private String cameraPicPath;
 
-    final String PearsonAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?ingredients-any=";
-    String searchOption;
+    private static final String PEARSONAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?ingredients-any=";
+    private static final String IMAGGAAPIURL = "http://api.imagga.com/v1/tagging?url=";
+
+    private static final String PARSEAPPLICATIONKEY = "YKowzej1GqPXBvD06scKLHgudRl332k2ArAcgqaN";
+    private static final String PARSECLIENTKEY = "RyxUkwCQASnnOQbH5mjL3xCJku9H1emYS8eh2jQT";
+    private static final String IMAGGAKEY = "acc_8559dece0d6b2e1";
+    private static final String IMAGGASECRET = "e5108c4a74bd48c165841a3c3c5cb825";
+
     ListView searchDisplay;
     Map<String, Recipe> recipes;
 
@@ -78,6 +80,10 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        // Enable Local Datastore
+        Parse.enableLocalDatastore(this);
+        Parse.initialize(this, PARSEAPPLICATIONKEY, PARSECLIENTKEY);
+
         getActionBar().setDisplayShowTitleEnabled(false); //TODO temp solution
         initVars();
     }
@@ -124,8 +130,50 @@ public class MainActivity extends Activity {
             case R.id.add_ingredient:
                 openIngredientInput();
                 return true;
+            case R.id.action_camera:
+                openCameraScan();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private void openCameraScan() {
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takePictureIntent, 2);
+        }
+    }
+
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == 2 && data != null) {
+            try{
+                Bitmap photo = (Bitmap) data.getExtras().get("data");
+                ByteArrayOutputStream stream = new ByteArrayOutputStream();
+                photo.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                byte[] byteArray = stream.toByteArray();
+                ParseObject saveObj = new ParseObject("ImagesForRecognition");
+                ParseFile parseBtyeArr = new ParseFile(byteArray);
+                saveObj.put("cameraImage", parseBtyeArr);
+                saveObj.saveInBackground(new SaveCallback() {
+                    @Override
+                    public void done(ParseException e) {
+                        ParseQuery<ParseObject> query = ParseQuery.getQuery("ImagesForRecognition");
+                        query.orderByDescending("createdAt");
+                        query.getFirstInBackground(new GetCallback<ParseObject>() {
+                            @Override
+                            public void done(ParseObject parseObject, ParseException e) {
+                                ParseFile retrieveFile = parseObject.getParseFile("cameraImage");
+                                String apiRequest = IMAGGAAPIURL + retrieveFile.getUrl();
+                                ImageParser parser = new ImageParser();
+                                parser.execute(apiRequest);
+                            }
+                        });
+                    }
+                });
+            }catch (Exception e){
+                e.printStackTrace();
+            }
         }
     }
 
@@ -137,7 +185,7 @@ public class MainActivity extends Activity {
             ingList.add((String)adapter.getItem(i));
         }
 
-        String search = PearsonAPIURL;
+        String search = PEARSONAPIURL;
         for(String s: ingList) {
             search = search.concat(s);
             if ((ingList.size()-1) != ingList.indexOf(s)){
@@ -265,6 +313,88 @@ public class MainActivity extends Activity {
             // Displaying into ListView
             ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this ,android.R.layout.simple_list_item_1, recipeNames);
             searchDisplay.setAdapter(adapter);
+        }
+    }
+
+    private class ImageParser extends AsyncTask<String, Void, Void> {
+        private InputStream is;
+        private String json;
+        private JSONObject jObj;
+        private String bestTag;
+        private Double topConfidence;
+
+        @Override
+        protected Void doInBackground(String... arg0) {
+            // Make Http request
+            HttpClient httpclient = new DefaultHttpClient();
+            HttpResponse response;
+            try {
+                HttpUriRequest request = new HttpGet(arg0[0]); // Or HttpPost(), depends on your needs
+                String credentials = IMAGGAKEY + ":" + IMAGGASECRET;
+                String base64EncodedCredentials = Base64.encodeToString(credentials.getBytes(), Base64.DEFAULT).replace("\n", "");
+                request.addHeader("Authorization", "Basic " + base64EncodedCredentials);
+
+                response = httpclient.execute(request);
+                StatusLine statusLine = response.getStatusLine();
+                if (statusLine.getStatusCode() == HttpStatus.SC_OK) {
+                    HttpEntity httpEntity = response.getEntity();
+                    is = httpEntity.getContent();
+                } else {
+                    //Closes the connection
+                    Toast.makeText(MainActivity.this,"Failed to connect",Toast.LENGTH_SHORT).show();
+                    response.getEntity().getContent().close();
+                    throw new IOException(statusLine.getReasonPhrase());
+                }
+            } catch (ClientProtocolException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            // Read Http request
+            try {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is, "iso-8859-1"), 8);
+                StringBuilder builder = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    builder.append(line);
+                }
+                is.close();
+                json = builder.toString();
+            } catch (UnsupportedEncodingException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            try {
+                jObj = new JSONObject(json);
+                JSONArray jResultsArr = jObj.getJSONArray("results");
+                JSONObject jTags = jResultsArr.getJSONObject(0);
+                JSONArray allTags = jTags.getJSONArray("tags");
+                for (int i=0; i<allTags.length();i++){
+                    JSONObject result = allTags.getJSONObject(i);
+
+                    Double confidence = (Double) result.get("confidence");
+                    String tag = result.getString("tag");
+
+                    bestTag = tag;
+                    topConfidence = confidence;
+                    break; //TODO: implement filtering of non food items
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            super.onPostExecute(result);
+
+            if (bestTag == null)
+                bestTag = "Failed to find anything";
+            Toast.makeText(MainActivity.this, bestTag, Toast.LENGTH_SHORT).show();
         }
     }
 
