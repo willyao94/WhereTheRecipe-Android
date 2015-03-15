@@ -7,7 +7,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Environment;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Base64;
@@ -17,16 +16,14 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.EditText;
 import android.widget.ListAdapter;
+import android.widget.Toast;
 
 import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
-import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
+import static nwhack_sb.wheretherecipeat.R.id.displaySearch;
 
 import android.widget.ArrayAdapter;
 import android.widget.ListView;
-import android.widget.Toast;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -63,7 +60,6 @@ public class MainActivity extends Activity {
 
     private List<String> ingredientsArr;
     private String inputIngredient;
-    private String cameraPicPath;
 
     private static final String PEARSONAPIURL = "http://api.pearson.com/kitchen-manager/v1/recipes?ingredients-any=";
     private static final String IMAGGAAPIURL = "http://api.imagga.com/v1/tagging?url=";
@@ -89,10 +85,34 @@ public class MainActivity extends Activity {
     }
 
     private void initVars() {
-        searchDisplay = (ListView) findViewById(R.id.displaySearch);
-        searchDisplay.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        searchDisplay = (ListView) findViewById(displaySearch);
+        searchDisplay.setOnItemClickListener(new AdapterView.OnItemClickListener(){
+
             @Override
-            public void onItemClick(final AdapterView<?> adapterView, View view, final int position, long l) {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                //Intent myIntent = new Intent(view.getContext(), NavigateRecipeActivity.class);
+                //myIntent.putExtra("test", "hello");
+                //startActivity(myIntent);
+                //Cursor c = (Cursor) searchDisplay.getItemAtPosition(position);
+                String recipeURL = "";
+
+                String value = searchDisplay.getAdapter().getItem(position).toString();
+                for(Recipe r: recipes.values()){
+                    if(r.getName().equals(value)){
+                        recipeURL = r.getRecipeURL();
+                        break;
+                    }
+                }
+                Intent myIntent = new Intent(view.getContext(), NavigateRecipeActivity.class);
+                myIntent.putExtra("recipeURL_String", recipeURL);
+                startActivity(myIntent);
+
+                //Toast.makeText(getApplicationContext(),recipeURL,Toast.LENGTH_SHORT).show();
+            }
+        });
+        searchDisplay.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(final AdapterView<?> adapterView, View view, final int position, long l) {
                 AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
                 builder.setTitle("Delete?");
                 builder.setMessage("Are you sure you want to delete " + position);
@@ -103,11 +123,12 @@ public class MainActivity extends Activity {
                 builder.setPositiveButton("Ok", new AlertDialog.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
                         ingredientsArr.remove(positionToRemove);
-                        ArrayAdapter<String> test = new ArrayAdapter<String>(MainActivity.this,android.R.layout.simple_list_item_1,ingredientsArr);
+                        ArrayAdapter<String> test = new ArrayAdapter<String>(MainActivity.this, android.R.layout.simple_list_item_1, ingredientsArr);
                         searchDisplay.setAdapter(adapter);
                     }
                 });
                 builder.show();
+                return false;
             }
         });
         ingredientsArr = new ArrayList<String>();
@@ -187,7 +208,7 @@ public class MainActivity extends Activity {
 
         String search = PEARSONAPIURL;
         for(String s: ingList) {
-            search = search.concat(s);
+            search = search.concat(s.trim());
             if ((ingList.size()-1) != ingList.indexOf(s)){
                 search = search.concat("%2C");
             }
@@ -377,12 +398,19 @@ public class MainActivity extends Activity {
 
                     Double confidence = (Double) result.get("confidence");
                     String tag = result.getString("tag");
-
-                    bestTag = tag;
-                    topConfidence = confidence;
-                    break; //TODO: implement filtering of non food items
+                    String lowerFirstChar = tag.toLowerCase().substring(0,1);
+                    ParseQuery<ParseObject> query = ParseQuery.getQuery("FoodDictionary_" + lowerFirstChar);
+                    query.whereEqualTo("foodName",tag);
+                    List<ParseObject> list = query.find();
+                    if (list.size() > 0) {
+                        bestTag = tag;
+                        topConfidence = confidence;
+                        break;
+                    }
                 }
             } catch (JSONException e) {
+                e.printStackTrace();
+            } catch (ParseException e) {
                 e.printStackTrace();
             }
             return null;
@@ -392,9 +420,15 @@ public class MainActivity extends Activity {
         protected void onPostExecute(Void result) {
             super.onPostExecute(result);
 
-            if (bestTag == null)
+            if (bestTag == null) {
                 bestTag = "Failed to find anything";
-            Toast.makeText(MainActivity.this, bestTag, Toast.LENGTH_SHORT).show();
+                Toast.makeText(MainActivity.this, bestTag, Toast.LENGTH_SHORT).show();
+            } else {
+                ingredientsArr.add(bestTag);
+
+                ArrayAdapter<String> adapter = new ArrayAdapter<String>(MainActivity.this ,android.R.layout.simple_list_item_1, ingredientsArr);
+                searchDisplay.setAdapter(adapter);
+            }
         }
     }
 
