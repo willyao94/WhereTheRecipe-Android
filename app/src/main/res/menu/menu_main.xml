@@ -1,5 +1,15 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools" tools:context=".MainActivity">
-    <item android:id="@+id/action_settings" android:title="@string/action_settings"
-        android:orderInCategory="100" android:showAsAction="never" />
+    <item android:id="@+id/add_ingredient"
+        android:title="@+id/add_ingredient"
+        android:orderInCategory="100" android:showAsAction="always"
+        android:icon="@android:drawable/ic_input_add"/>
+    <item android:id="@+id/action_search"
+        android:title="@+id/action_search"
+        android:icon="@android:drawable/ic_menu_search"
+        android:showAsAction="always" />
+    <item android:id="@+id/action_camera"
+        android:title="@+id/action_camera"
+        android:icon="@android:drawable/ic_menu_camera"
+        android:showAsAction="always" />
 </menu>
